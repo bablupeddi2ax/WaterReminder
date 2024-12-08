@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "133382258332",
+    "firebase_url": "https://water-reminder-fd524-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "water-reminder-fd524",
+    "storage_bucket": "water-reminder-fd524.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133382258332:android:34e7ef7739086f67803759",
+        "android_client_info": {
+          "package_name": "com.nazerapps.waterreminder"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "133382258332-bsert09ut4bbahr9h8chf68d6mjohd38.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nazerapps.waterreminder",
+            "certificate_hash": "cb72d6c116dc9258621f542c38edfa31a5243c91"
+          }
+        },
+        {
+          "client_id": "133382258332-5od1287d0r61o089c9hglipom4her9i7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmUbneFnBP3vXmfBqPtddn3U5k0uHtmTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "133382258332-5od1287d0r61o089c9hglipom4her9i7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
