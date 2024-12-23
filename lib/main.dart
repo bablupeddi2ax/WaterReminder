@@ -1,30 +1,61 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter/material.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:waterreminder/reminderTimemanager.dart';
+import 'db/drift_db.dart' as drift;
 
+
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/material.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
-
+import 'package:waterreminder/reminderTimemanager.dart';
 import 'db/drift_db.dart' as drift;
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:drift/drift.dart' as drift;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter/material.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:waterreminder/reminderTimemanager.dart';
+import 'db/drift_db.dart' as drift;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  checkAndRequestPermissions();
   SharedPreferences prefs = await SharedPreferences.getInstance();
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Asia/Kolkata')); // Set the default location if needed
   bool userDetailsExist = prefs.getString('userId') != null;
+  bool onboardingComplete = prefs.getBool('onboardingComplete') ?? false;
 
   final database = drift.AppDatabase();
+  String initialRoute = userDetailsExist
+      ? (onboardingComplete ? '/home' : '/onboarding')
+      : '/signUp';
 
   runApp(MaterialApp(
     title: "Water Reminder",
-    initialRoute: userDetailsExist ? '/fetchUserDetails' : '/signUp',
+    initialRoute: initialRoute,
     routes: {
       '/': (context) => HomeScreen(database: database),
       '/home': (context) => HomeScreen(database: database),
@@ -48,6 +79,23 @@ void main() async {
     },
   ));
 }
+Future<void> checkAndRequestPermissions() async {
+  try {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.notification,
+      Permission.scheduleExactAlarm,
+    ].request();
+
+    statuses.forEach((permission, status) {
+      if (!status.isGranted) {
+        // Handle each permission denial appropriately
+      }
+    });
+  } catch (e) {
+    print('Error requesting permissions: $e');
+  }
+}
+//newer
 class HomeScreen extends StatefulWidget {
   final drift.AppDatabase database;
 
@@ -59,8 +107,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentDayWaterIntake = 0;
-  int _dailyWaterIntakeGoal = 2000; // 2 liters
-  List<String> _waterIntakePlan = [];
+  int _dailyWaterIntakeGoal = 2000;
+  List<Map<String, dynamic>> _waterIntakePlan = [];
   bool _isLoading = true;
 
   @override
@@ -70,27 +118,61 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUserDetails() async {
+    print('Loading user details...');
     SharedPreferences prefs = await SharedPreferences.getInstance();
     final user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
       final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       if (userDoc.exists) {
-        setState(() {
-          _dailyWaterIntakeGoal = userDoc.data()?['waterIntake'] ?? 2000;
-          _waterIntakePlan = List<String>.from(userDoc.data()?['plan'] ?? []);
-        });
+        print('Found user document in Firestore');
+        if (mounted) {
+          setState(() {
+            _dailyWaterIntakeGoal = userDoc.data()?['waterIntake'] ?? 2000;
 
-        // Store in SharedPreferences
-        prefs.setInt('waterIntake', _dailyWaterIntakeGoal);
-        prefs.setStringList('plan', _waterIntakePlan);
+            final planData = List<Map<String, dynamic>>.from(userDoc.data()?['plan'] ?? []);
+            _waterIntakePlan = planData.map((reminder) {
+              return {
+                'id': reminder['id'],
+                'time': reminder['time'],
+                'title': reminder['title'],
+                'body': reminder['body'],
+              };
+            }).toList();
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
+  }
 
-    _currentDayWaterIntake = prefs.getInt('currentDayWaterIntake') ?? 0;
-    setState(() {
-      _isLoading = false;
-    });
+  Future<void> _navigateToReminderDetails(int reminderId) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReminderDetailsScreen(
+          id: reminderId,
+          database: widget.database,
+        ),
+      ),
+    );
+
+    // Refresh the list if changes were made (result is true)
+    if (result == true) {
+      await _loadUserDetails();
+    }
   }
 
   @override
@@ -98,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
     double progress = _currentDayWaterIntake / _dailyWaterIntakeGoal;
 
     if (_isLoading) {
-      return Scaffold(
+      return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
         ),
@@ -106,39 +188,59 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Current Day Water Intake:', style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 8),
-            Text('${_currentDayWaterIntake} ml / ${_dailyWaterIntakeGoal} ml'),
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+      appBar: AppBar(title: const Text('Home'), automaticallyImplyLeading: false),
+      body: RefreshIndicator(
+        onRefresh: _loadUserDetails,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Current Day Water Intake:', style: TextStyle(fontSize: 18)),
+                const SizedBox(height: 8),
+                Text('${_currentDayWaterIntake} ml / ${_dailyWaterIntakeGoal} ml'),
+                const SizedBox(height: 16),
+                LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Colors.grey[300],
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                ),
+                const SizedBox(height: 32),
+                const Text('Water Intake Plan:', style: TextStyle(fontSize: 18)),
+                const SizedBox(height: 8),
+                if (_waterIntakePlan.isEmpty)
+                  const Text('No reminders set yet. Please complete the onboarding process.')
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _waterIntakePlan.length,
+                    itemBuilder: (context, index) {
+                      final reminder = _waterIntakePlan[index];
+                      final time = TimeOfDay.fromDateTime(DateTime.parse(reminder['time']));
+                      return ListTile(
+                        title: Text(reminder['title'] ?? 'Drink Water Reminder'),
+                        subtitle: Text(reminder['body'] ?? 'It\'s time to drink water!'),
+                        trailing: Text(time.format(context)),
+                        onTap: () {
+                          final reminderId = reminder['id'];
+                          if (reminderId != null) {
+                            _navigateToReminderDetails(reminderId);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/settings'),
+                  child: const Text('Settings'),
+                ),
+              ],
             ),
-            const SizedBox(height: 32),
-            const Text('Water Intake Plan:', style: TextStyle(fontSize: 18)),
-            const SizedBox(height: 8),
-            if (_waterIntakePlan.isEmpty)
-              const Text('No reminders set yet. Please complete the onboarding process.'),
-            ..._waterIntakePlan.map((time) => ListTile(
-              title: Text(time),
-              onTap: () {
-                final id = _waterIntakePlan.indexOf(time);
-                Navigator.pushNamed(context, '/reminderDetails/$id');
-              },
-            )),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/settings'),
-              child: const Text('Settings'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -152,76 +254,54 @@ class FetchUserDetailsScreen extends StatelessWidget {
   Future<void> _fetchAndStoreUserDetails(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      print("user is not null");
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final prefs = await SharedPreferences.getInstance();
 
-      if (userDoc.exists) {
-        print("userdoc is not null");
-        final prefs = await SharedPreferences.getInstance();
-        prefs.setString('userId', user.uid);
-        prefs.setString('name', userDoc.data()?['name'] ?? '');
-        prefs.setInt('age', userDoc.data()?['age'] ?? 0);
-        prefs.setInt('weight', userDoc.data()?['weight'] ?? 0);
-        prefs.setInt('waterIntake', userDoc.data()?['waterIntake'] ?? 2000);
-        prefs.setString('startTime', userDoc.data()?['startTime'] ?? '');
-        prefs.setString('endTime', userDoc.data()?['endTime'] ?? '');
-        prefs.setStringList('plan', List<String>.from(userDoc.data()?['plan'] ?? []));
+      try {
+        // Try to get user from Firestore first
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
-        // Store in local database
-        final userId = await database.insertUser(drift.UsersCompanion(
-          name: drift.Value(userDoc.data()?['name'] ?? ''),
-          age: drift.Value(userDoc.data()?['age'] ?? 0),
-          weight: drift.Value(userDoc.data()?['weight'] ?? 0),
-          waterIntake: drift.Value(userDoc.data()?['waterIntake'] ?? 2000),
-          startTime: drift.Value(userDoc.data()?['startTime'] ?? ''),
-          endTime: drift.Value(userDoc.data()?['endTime'] ?? ''),
-        ));
-        print("local db done");
+        if (userDoc.exists) {
+          // Store all user details in SharedPreferences
+          await prefs.setString('userId', user.uid);
+          await prefs.setBool('onboardingComplete', true);  // Add this flag
 
-        // Fixed: Properly convert the plan data to RemindersCompanion list
-        final List<dynamic> planData = userDoc.data()?['plan'] ?? [];
-        final List<drift.RemindersCompanion> reminders = planData
-            .map((time) => drift.RemindersCompanion(
-          userId: drift.Value(userId),
-          time: drift.Value(time.toString()),
-        ))
-            .toList();
-
-        await database.updateRemindersByUserId(userId, reminders);
-        print("local reminder updating done");
-
-        // Cancel existing notifications
-        final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-        await flutterLocalNotificationsPlugin.cancelAll();
-        print("notification cancel done");
-
-        // Schedule new notifications
-        final List<String> plan = List<String>.from(userDoc.data()?['plan'] ?? []);
-        _scheduleNotifications(plan, database);
-        print("new notifications done");
-
-        // Navigate to home screen
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        // Handle case where user document does not exist
-        Navigator.pushReplacementNamed(context, '/onboarding');
+          // Navigate to home
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          // User needs to complete onboarding
+          Navigator.pushReplacementNamed(context, '/onboarding');
+        }
+      } catch (e) {
+        print('Error fetching user details: $e');
+        // Handle error appropriately
+        Navigator.pushReplacementNamed(context, '/signUp');
       }
+    } else {
+      Navigator.pushReplacementNamed(context, '/signUp');
     }
   }
 
-  void _scheduleNotifications(List<String> plan, drift.AppDatabase database) async {
-    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-    );
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  void _scheduleNotifications(List<Map<String, String>> planData) {
+    for (int i = 0; i < planData.length; i++) {
+      final reminder = planData[i];
+      tz.TZDateTime? scheduledTime;
 
-    for (int i = 0; i < plan.length; i++) {
-      final scheduledTime = tz.TZDateTime.parse(tz.local, plan[i]);
-      final notificationTitle = 'Drink Water Reminder';
-      final notificationBody = 'It\'s time to drink water!';
+      try {
+        scheduledTime = tz.TZDateTime.parse(tz.local, reminder['time']!);
+      } catch (e) {
+        print('Error parsing time: ${reminder['time']}, error: $e');
+        continue;
+      }
+
+      // Ensure the scheduled time is in the future
+      final now = tz.TZDateTime.now(tz.local);
+      if (scheduledTime.isBefore(now)) {
+        scheduledTime = scheduledTime.add(const Duration(days: 1));
+        print('Adjusted scheduled time to: $scheduledTime');
+      }
+
+      final notificationTitle = reminder['title'] ?? 'Drink Water Reminder';
+      final notificationBody = reminder['body'] ?? 'It\'s time to drink water!';
 
       final AndroidNotificationDetails androidPlatformChannelSpecifics =
       const AndroidNotificationDetails(
@@ -234,7 +314,7 @@ class FetchUserDetailsScreen extends StatelessWidget {
       final NotificationDetails platformChannelSpecifics =
       NotificationDetails(android: androidPlatformChannelSpecifics);
 
-      await flutterLocalNotificationsPlugin.zonedSchedule(
+      FlutterLocalNotificationsPlugin().zonedSchedule(
         i,
         notificationTitle,
         notificationBody,
@@ -249,7 +329,9 @@ class FetchUserDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    _fetchAndStoreUserDetails(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchAndStoreUserDetails(context);
+    });
     return const Scaffold(
       body: Center(
         child: CircularProgressIndicator(),
@@ -352,8 +434,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
-
-
 class ReminderDetailsScreen extends StatefulWidget {
   final int id;
   final drift.AppDatabase database;
@@ -365,52 +445,162 @@ class ReminderDetailsScreen extends StatefulWidget {
 }
 
 class _ReminderDetailsScreenState extends State<ReminderDetailsScreen> {
-  late TextEditingController _timeController;
+  late TimeOfDay _selectedTime;
+  late TextEditingController _titleController;
+  late TextEditingController _bodyController;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _timeController = TextEditingController();
+    _selectedTime = TimeOfDay.now();
+    _titleController = TextEditingController();
+    _bodyController = TextEditingController();
     _loadReminderDetails();
   }
 
   Future<void> _loadReminderDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> plan = prefs.getStringList('plan') ?? [];
-    if (widget.id < plan.length) {
-      _timeController.text = plan[widget.id];
+    try {
+      final reminder = await widget.database.getReminderById(widget.id);
+
+      if (reminder != null) {
+        final reminderTime = DateTime.parse(reminder.time ?? '');
+        setState(() {
+          _selectedTime = TimeOfDay(hour: reminderTime.hour, minute: reminderTime.minute);
+          _titleController.text = reminder.title ?? 'Drink Water Reminder';
+          _bodyController.text = reminder.body ?? 'It\'s time to drink water!';
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading reminder details: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _saveReminderDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> plan = prefs.getStringList('plan') ?? [];
-    if (widget.id < plan.length) {
-      plan[widget.id] = _timeController.text;
-      prefs.setStringList('plan', plan);
+    try {
+      // Create DateTime without changing the date
+      final now = DateTime.now();
+      final reminderDateTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        _selectedTime.hour,
+        _selectedTime.minute,
+      );
+
+      final formattedTime = reminderDateTime.toIso8601String();
+
+      // Update reminder in Drift database
+      final updatedReminderCompanion = drift.RemindersCompanion(
+        time: drift.Value(formattedTime),
+        title: drift.Value(_titleController.text),
+        body: drift.Value(_bodyController.text),
+      );
+
+      await widget.database.updateReminderById(widget.id, updatedReminderCompanion);
 
       // Update Firestore
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'plan': plan,
-        });
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          final plan = List<Map<String, dynamic>>.from(userDoc.data()?['plan'] ?? []);
+          final updatedPlan = plan.map((reminder) {
+            if (reminder['id'] == widget.id) {
+              return {
+                'id': widget.id,
+                'time': formattedTime,
+                'title': _titleController.text,
+                'body': _bodyController.text,
+              };
+            }
+            return reminder;
+          }).toList();
 
-        // Update local database
-        final reminders = plan.map((time) =>drift.RemindersCompanion(
-          userId: drift.Value(widget.id),
-          time: drift.Value(time),
-        )).toList();
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+            'plan': updatedPlan,
+          });
+        }
 
-        await widget.database.updateRemindersByUserId(widget.id, reminders);
+        // Reschedule notification
+        await _scheduleNotification(widget.id, formattedTime, _titleController.text, _bodyController.text);
+
+        if (mounted) {
+          Navigator.pop(context, true); // Pass true to indicate update
+        }
       }
-
-      Navigator.pop(context);
+    } catch (e) {
+      print('Error saving reminder details: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save reminder: $e')),
+        );
+      }
     }
+  }
+
+  Future<void> _scheduleNotification(int id, String time, String title, String body) async {
+    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    await flutterLocalNotificationsPlugin.cancel(id);
+
+    final scheduledTime = DateTime.parse(time);
+    final now = DateTime.now();
+    var notificationTime = DateTime(now.year, now.month, now.day, scheduledTime.hour, scheduledTime.minute);
+
+    if (notificationTime.isBefore(now)) {
+      notificationTime = notificationTime.add(const Duration(days: 1));
+    }
+
+    const androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'your_channel_id',
+      'your_channel_name',
+      importance: Importance.max,
+      priority: Priority.high,
+      fullScreenIntent: true,
+      enableLights: true,
+      visibility: NotificationVisibility.public,
+
+      showWhen: true,
+      sound: RawResourceAndroidNotificationSound('sound'),
+      enableVibration: true,
+      actions: [
+        AndroidNotificationAction('0', 'Snooze'),
+        AndroidNotificationAction('1', 'Drank', cancelNotification: true),
+      ],
+    );
+    final platformChannelSpecifics = const NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(notificationTime, tz.local),
+      platformChannelSpecifics,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Rest of the build method remains the same
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Edit Reminder')),
       body: Padding(
@@ -419,21 +609,33 @@ class _ReminderDetailsScreenState extends State<ReminderDetailsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TextField(
-              controller: _timeController,
-              readOnly: true,
+              controller: _titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _bodyController,
+              decoration: const InputDecoration(labelText: 'Body'),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              title: const Text('Reminder Time'),
+              subtitle: Text(
+                _selectedTime.format(context),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              trailing: const Icon(Icons.access_time),
               onTap: () async {
                 final TimeOfDay? pickedTime = await showTimePicker(
                   context: context,
-                  initialTime: TimeOfDay.fromDateTime(
-                    DateTime.parse(_timeController.text),
-                  ),
+                  initialTime: _selectedTime,
                 );
                 if (pickedTime != null) {
-                  final formattedTime = '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
-                  _timeController.text = formattedTime;
+                  setState(() {
+                    _selectedTime = pickedTime;
+                  });
                 }
               },
-              decoration: const InputDecoration(labelText: 'Time'),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -446,7 +648,6 @@ class _ReminderDetailsScreenState extends State<ReminderDetailsScreen> {
     );
   }
 }
-
 class SignUpScreen extends StatefulWidget {
   final drift.AppDatabase database;
 
@@ -462,36 +663,52 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isCodeSent = false;
 
   Future<void> _sendVerificationCode() async {
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+91${_phoneNumberController.text}',
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        _storeUserDetails();
-        Navigator.pushReplacementNamed(context, '/onboarding');
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (e.code == 'invalid-phone-number') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('The provided phone number is not valid.')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Verification failed: ${e.message}')),
-          );
-        }
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-          _isCodeSent = true;
-        });
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        setState(() {
-          _verificationId = verificationId;
-        });
-      },
-    );
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+91${_phoneNumberController.text}',
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          if (mounted) {
+            _storeUserDetails();
+            Navigator.pushReplacementNamed(context, '/onboarding');
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (mounted) {
+            if (e.code == 'invalid-phone-number') {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('The provided phone number is not valid.')),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Verification failed: ${e.message}')),
+              );
+            }
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (mounted) {
+            setState(() {
+              _verificationId = verificationId;
+              _isCodeSent = true;
+            });
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (mounted) {
+            setState(() {
+              _verificationId = verificationId;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sending verification code: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _verifyCode(String smsCode) async {
@@ -502,12 +719,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       await FirebaseAuth.instance.signInWithCredential(credential);
-      _storeUserDetails();
-      Navigator.pushReplacementNamed(context, '/onboarding');
+      if (mounted) {
+        _storeUserDetails();
+        Navigator.pushReplacementNamed(context, '/onboarding');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid verification code')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid verification code')),
+        );
+      }
     }
   }
 
@@ -523,7 +744,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
+      appBar: AppBar(title: const Text('Sign Up'), automaticallyImplyLeading: false),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -563,8 +784,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 }
 
-
-
 class SignInScreen extends StatefulWidget {
   final drift.AppDatabase database;
 
@@ -580,36 +799,52 @@ class _SignInScreenState extends State<SignInScreen> {
   bool _isCodeSent = false;
 
   Future<void> _sendVerificationCode() async {
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+91${_phoneNumberController.text}',
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        _storeUserDetails();
-        Navigator.pushReplacementNamed(context, '/home');
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        if (e.code == 'invalid-phone-number') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('The provided phone number is not valid.')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Verification failed: ${e.message}')),
-          );
-        }
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-          _isCodeSent = true;
-        });
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        setState(() {
-          _verificationId = verificationId;
-        });
-      },
-    );
+    try {
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+91${_phoneNumberController.text}',
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await FirebaseAuth.instance.signInWithCredential(credential);
+          if (mounted) {
+            _storeUserDetails();
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          if (mounted) {
+            if (e.code == 'invalid-phone-number') {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('The provided phone number is not valid.')),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Verification failed: ${e.message}')),
+              );
+            }
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (mounted) {
+            setState(() {
+              _verificationId = verificationId;
+              _isCodeSent = true;
+            });
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (mounted) {
+            setState(() {
+              _verificationId = verificationId;
+            });
+          }
+        },
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sending verification code: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _verifyCode(String smsCode) async {
@@ -620,12 +855,16 @@ class _SignInScreenState extends State<SignInScreen> {
       );
 
       await FirebaseAuth.instance.signInWithCredential(credential);
-      _storeUserDetails();
-      Navigator.pushReplacementNamed(context, '/home');
+      if (mounted) {
+        _storeUserDetails();
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Invalid verification code')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid verification code')),
+        );
+      }
     }
   }
 
@@ -672,7 +911,7 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
             TextButton(
               onPressed: () => Navigator.pushReplacementNamed(context, '/signUp'),
-              child: const Text('Don\'t have an account? Sign Up'),
+              child: const Text("Don't have an account? Sign Up"),
             ),
           ],
         ),
@@ -680,9 +919,6 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 }
-
-
-
 class OnboardingScreen extends StatefulWidget {
   final drift.AppDatabase database;
 
@@ -698,8 +934,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final TextEditingController _weightController = TextEditingController();
   final TextEditingController _waterIntakeController = TextEditingController();
   late FirebaseAuth auth;
-  TimeOfDay _startTime = TimeOfDay.now();
-  TimeOfDay _endTime = TimeOfDay.now();
+  TimeOfDay _startTime = TimeOfDay(hour: 8, minute: 0);
+  TimeOfDay _endTime = TimeOfDay(hour: 22, minute: 0);
 
   late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
   late tz.Location _localTimeZone;
@@ -771,26 +1007,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       prefs.setString('startTime', _formatTimeOfDay(_startTime));
       prefs.setString('endTime', _formatTimeOfDay(_endTime));
 
-      // Generate and store the water intake plan
+      // Generate water intake plan times
       final plan = _generateWaterIntakePlan(
         int.parse(_waterIntakeController.text),
         _formatTimeOfDay(_startTime),
         _formatTimeOfDay(_endTime),
       );
 
-      // Store in Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-        'name': _nameController.text,
-        'age': int.parse(_ageController.text),
-        'weight': int.parse(_weightController.text),
-        'waterIntake': int.parse(_waterIntakeController.text),
-        'startTime': _formatTimeOfDay(_startTime),
-        'endTime': _formatTimeOfDay(_endTime),
-        'plan': plan.map((time) => time.toString()).toList(),
-      });
-
-      // Store in local database
-      final userId = await widget.database.insertUser(drift.UsersCompanion(
+      // First store user in local database
+      await widget.database.insertUser(drift.UsersCompanion(
+        id: drift.Value(user.uid),
         name: drift.Value(_nameController.text),
         age: drift.Value(int.parse(_ageController.text)),
         weight: drift.Value(int.parse(_weightController.text)),
@@ -799,24 +1025,107 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         endTime: drift.Value(_formatTimeOfDay(_endTime)),
       ));
 
-      final reminders = plan.map((time) => drift.RemindersCompanion(
-        userId: drift.Value(userId),
-        time: drift.Value(time.toString()),
-      )).toList();
+      // Store reminders in local database first to get IDs
+      List<drift.Reminder> localReminders = [];
+      for (var planTime in plan) {
+        final reminderCompanion = drift.RemindersCompanion(
+          userId: drift.Value(user.uid),
+          time: drift.Value(planTime.toUtc().toIso8601String()),
+          title: const drift.Value('Drink Water Reminder'),
+          body: const drift.Value('It\'s time to drink water!'),
+        );
 
-      await widget.database.updateRemindersByUserId(userId, reminders);
+        // Insert and get the auto-generated ID
+        final reminderId = await widget.database.insertReminder(reminderCompanion);
+        final reminder = await widget.database.getReminderById(reminderId);
+        if (reminder != null) {
+          localReminders.add(reminder);
+        }
+      }
 
-      // Store in SharedPreferences
-      prefs.setStringList('plan', plan.map((time) => time.toString()).toList());
+      // Create two versions of planData: one for Firestore (can handle various types)
+      // and one for SharedPreferences/notifications (needs strings)
+      final firestorePlanData = localReminders.map((drift.Reminder reminder) => {
+        'id': reminder.id,
+        'time': reminder.time,
+        'title': reminder.title,
+        'body': reminder.body,
+      }).toList();
+
+      final stringPlanData = localReminders.map((drift.Reminder reminder) => {
+        'id': reminder.id.toString(),
+        'time': reminder.time,
+        'title': reminder.title,
+        'body': reminder.body,
+      }).toList();
+
+      // Store in Firestore with real IDs (can handle non-string types)
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'name': _nameController.text,
+        'age': int.parse(_ageController.text),
+        'weight': int.parse(_weightController.text),
+        'waterIntake': int.parse(_waterIntakeController.text),
+        'startTime': _formatTimeOfDay(_startTime),
+        'endTime': _formatTimeOfDay(_endTime),
+        'plan': firestorePlanData,
+      });
+
+      // Store in SharedPreferences (needs strings)
+      prefs.setStringList('plan', stringPlanData.map((reminder) => jsonEncode(reminder)).toList());
 
       // Cancel existing notifications
       await flutterLocalNotificationsPlugin.cancelAll();
 
-      // Schedule new notifications
-      _scheduleNotifications(plan);
-
+      // Schedule new notifications using the string version of planData
+      _scheduleNotifications(stringPlanData);
+      prefs.setBool('onboardingComplete', true);  // A
       // Navigate to home screen
       Navigator.pushReplacementNamed(context, '/home');
+    }
+  }
+  void _scheduleNotifications(List<Map<String, String?>> planData) {
+    for (int i = 0; i < planData.length; i++) {
+      final reminder = planData[i];
+      tz.TZDateTime? scheduledTime;
+
+      try {
+        scheduledTime = tz.TZDateTime.parse(tz.local, reminder['time']!);
+      } catch (e) {
+        print('Error parsing time: ${reminder['time']}, error: $e');
+        continue;
+      }
+
+      // Ensure the scheduled time is in the future
+      final now = tz.TZDateTime.now(tz.local);
+      if (scheduledTime.isBefore(now)) {
+        scheduledTime = scheduledTime.add(const Duration(days: 1));
+        print('Adjusted scheduled time to: $scheduledTime');
+      }
+
+      final notificationTitle = reminder['title']!;
+      final notificationBody = reminder['body']!;
+
+      final AndroidNotificationDetails androidPlatformChannelSpecifics =
+      const AndroidNotificationDetails(
+        'your_channel_id',
+        'your_channel_name',
+        importance: Importance.max,
+        priority: Priority.high,
+        showWhen: true,
+      );
+      final NotificationDetails platformChannelSpecifics =
+      NotificationDetails(android: androidPlatformChannelSpecifics);
+
+      FlutterLocalNotificationsPlugin().zonedSchedule(
+        i,
+        notificationTitle,
+        notificationBody,
+        scheduledTime,
+        platformChannelSpecifics,
+        uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
     }
   }
 
@@ -842,7 +1151,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final intervalMinutes = totalMinutes / 8;
 
     List<tz.TZDateTime> plan = [];
-    final now = tz.TZDateTime.now(_localTimeZone);
+    final now = tz.TZDateTime.now(tz.local);
 
     for (int i = 0; i < 8; i++) {
       // Calculate target time for this reminder
@@ -852,7 +1161,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       // Create notification datetime
       var scheduledDate = tz.TZDateTime(
-        _localTimeZone,
+        tz.local,
         now.year,
         now.month,
         now.day,
@@ -869,36 +1178,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     return plan;
-  }
-
-  void _scheduleNotifications(List<tz.TZDateTime> plan) {
-    for (int i = 0; i < plan.length; i++) {
-      final scheduledTime = plan[i];
-      final notificationTitle = 'Drink Water Reminder';
-      final notificationBody = 'It\'s time to drink water!';
-
-      final AndroidNotificationDetails androidPlatformChannelSpecifics =
-      const AndroidNotificationDetails(
-        'your_channel_id',
-        'your_channel_name',
-        importance: Importance.max,
-        priority: Priority.high,
-        showWhen: true,
-      );
-      final NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
-
-      flutterLocalNotificationsPlugin.zonedSchedule(
-        i,
-        notificationTitle,
-        notificationBody,
-        scheduledTime,
-        platformChannelSpecifics,
-        uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      );
-    }
   }
 
   @override
