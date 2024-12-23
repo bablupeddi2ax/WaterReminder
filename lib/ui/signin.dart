@@ -4,16 +4,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../db/drift_db.dart';
 
-class SignUpScreen extends StatefulWidget {
+class SignInScreen extends StatefulWidget {
   final AppDatabase database;
 
-  const SignUpScreen({super.key, required this.database});
+  const SignInScreen({super.key, required this.database});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  State<SignInScreen> createState() => _SignInScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController _phoneNumberController = TextEditingController();
   String? _verificationId;
   bool _isCodeSent = false;
@@ -26,7 +26,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           await FirebaseAuth.instance.signInWithCredential(credential);
           if (mounted) {
             _storeUserDetails();
-            Navigator.pushReplacementNamed(context, '/onboarding');
+            Navigator.pushReplacementNamed(context, '/home');
           }
         },
         verificationFailed: (FirebaseAuthException e) {
@@ -78,7 +78,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       await FirebaseAuth.instance.signInWithCredential(credential);
       if (mounted) {
         _storeUserDetails();
-        Navigator.pushReplacementNamed(context, '/onboarding');
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
       if (mounted) {
@@ -101,8 +101,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-          title: const Text('Sign Up'), automaticallyImplyLeading: false),
+      appBar: AppBar(title: const Text('Sign In')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -134,8 +133,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             TextButton(
               onPressed: () =>
-                  Navigator.pushReplacementNamed(context, '/signIn'),
-              child: const Text('Already have an account? Sign In'),
+                  Navigator.pushReplacementNamed(context, '/signUp'),
+              child: const Text("Don't have an account? Sign Up"),
             ),
           ],
         ),
