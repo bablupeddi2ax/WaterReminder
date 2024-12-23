@@ -10,7 +10,6 @@ import '../db/drift_db.dart';
 class ReminderDetailsScreen extends StatefulWidget {
   final int id;
   final AppDatabase database;
-
   const ReminderDetailsScreen(
       {super.key, required this.id, required this.database});
 
