@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -18,26 +20,49 @@ class FetchUserDetailsScreen extends StatelessWidget {
       final prefs = await SharedPreferences.getInstance();
 
       try {
-        // Try to get user from Firestore first
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
 
         if (userDoc.exists) {
-          // Store all user details in SharedPreferences
+          // Store user details in SharedPreferences
+          await prefs.setString('name', userDoc.data()?['name']??"");
+          await prefs.setString('age', userDoc.data()?['age']??"");
+          await prefs.setString('weight', userDoc.data()?['weight']??0);
           await prefs.setString('userId', user.uid);
-          await prefs.setBool('onboardingComplete', true); // Add this flag
+          await prefs.setBool('onboardingComplete', true);
+
+          // Get the notification plan from Firestore
+          final planData = List<Map<String, dynamic>>.from(userDoc.data()?['plan'] ?? []);
+
+          // Convert to the format needed for notifications
+          final notificationPlanData = planData.map((reminder) => {
+            'id': reminder['id'].toString(),
+            'time': reminder['time'],
+            'title': reminder['title'],
+            'body': reminder['body'],
+          }).toList();
+
+          // Store plan in SharedPreferences
+          await prefs.setStringList(
+              'plan',
+              notificationPlanData.map((reminder) => jsonEncode(reminder)).toList()
+          );
+
+          // Cancel any existing notifications before scheduling new ones
+          await FlutterLocalNotificationsPlugin().cancelAll();
+
+          // Schedule the notifications
+          _scheduleNotifications(notificationPlanData as List<Map<String,String>>);
 
           // Navigate to home
           Navigator.pushReplacementNamed(context, '/home');
         } else {
-          // User needs to complete onboarding
           Navigator.pushReplacementNamed(context, '/onboarding');
         }
       } catch (e) {
         print('Error fetching user details: $e');
-        // Handle error appropriately
         Navigator.pushReplacementNamed(context, '/signUp');
       }
     } else {
@@ -46,6 +71,7 @@ class FetchUserDetailsScreen extends StatelessWidget {
   }
 
   void _scheduleNotifications(List<Map<String, String>> planData) {
+    print(planData);
     for (int i = 0; i < planData.length; i++) {
       final reminder = planData[i];
       tz.TZDateTime? scheduledTime;
@@ -69,11 +95,29 @@ class FetchUserDetailsScreen extends StatelessWidget {
 
       final AndroidNotificationDetails androidPlatformChannelSpecifics =
           const AndroidNotificationDetails(
-        'your_channel_id',
-        'your_channel_name',
-        importance: Importance.max,
-        priority: Priority.high,
-        showWhen: true,
+        'water_reminder_channel',
+        'Water Reminders',
+            importance: Importance.max,
+            priority: Priority.high,
+            actions: <AndroidNotificationAction>[
+              AndroidNotificationAction(
+                'DRINK_ACTION',
+                'Drink',
+                showsUserInterface: false,
+                cancelNotification: false,
+              ),
+              AndroidNotificationAction(
+                'SNOOZE_ACTION',
+                'Snooze',
+                showsUserInterface: false,
+                cancelNotification: false,
+              ),
+            ],
+            playSound: true,
+            enableLights: true,
+            enableVibration: true,
+            fullScreenIntent: true,
+            category: AndroidNotificationCategory.alarm,
       );
       final NotificationDetails platformChannelSpecifics =
           NotificationDetails(android: androidPlatformChannelSpecifics);
@@ -95,6 +139,7 @@ class FetchUserDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchAndStoreUserDetails(context);
+
     });
     return const Scaffold(
       body: Center(

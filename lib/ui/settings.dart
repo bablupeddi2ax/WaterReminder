@@ -30,10 +30,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadUserDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _nameController.text = prefs.getString('name') ?? '';
-    _ageController.text = prefs.getInt('age')?.toString() ?? '';
-    _weightController.text = prefs.getInt('weight')?.toString() ?? '';
+    // SharedPreferences prefs = await SharedPreferences.getInstance();
+    // _nameController.text = prefs.getString('name') ?? '';
+    // _ageController.text = prefs.getInt('age')?.toString() ?? '';
+    // _weightController.text = prefs.getInt('weight')?.toString() ?? '';
+    // try {
+      final user = FirebaseAuth.instance.currentUser;
+      // if (user != null) {
+      //   // Try Firestore first
+      //   final userDoc = await FirebaseFirestore.instance
+      //       .collection('users')
+      //       .doc(user.uid)
+      //       .get();
+
+        // if (userDoc.exists) {
+        //   final userData = userDoc.data()!;
+        //   setState(() {
+        //     _nameController.text = userData['name'] ?? '';
+        //     _ageController.text = userData['age']?.toString() ?? '';
+        //     _weightController.text = userData['weight']?.toString() ?? '';
+        //   });
+        // } else {
+          // Fall back to SharedPreferences
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          setState(() {
+            _nameController.text = prefs.getString('name') ?? '';
+            _ageController.text = prefs.getString('age')?.toString() ?? '';
+            _weightController.text = prefs.getString('weight')?.toString() ?? '';
+          });
+        // }
+      // }
+    // } catch (e) {
+    //   print('Error loading user details: $e');
+    // }
   }
 
   Future<void> _saveUserDetails() async {
@@ -41,7 +70,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     prefs.setString('name', _nameController.text);
     prefs.setInt('age', int.tryParse(_ageController.text) ?? 0);
     prefs.setInt('weight', int.tryParse(_weightController.text) ?? 0);
-
     // Update Firestore
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {

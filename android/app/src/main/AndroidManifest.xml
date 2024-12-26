@@ -15,11 +15,24 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
-            android:exported="true"/>
+            android:name="com.nazerapps.waterreminder.NotificationReceiver"
+            android:enabled="true"
+            android:exported="false"
+            >
+        </receiver>
+<!--        for the action buttons -->
         <receiver
-            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
-            android:exported="true"/>
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"
+            android:exported="false" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <activity
             android:name=".MainActivity"
             android:enableOnBackInvokedCallback="true"
@@ -60,7 +73,13 @@
             android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="To demonstrate how to use foreground services to show notifications"/>
         </service>
-
+        <receiver android:name=".NotificationReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="DRINK_ACTION" />
+                <action android:name="SNOOZE_ACTION" />
+            </intent-filter>
+        </receiver>
     </application>
 
 

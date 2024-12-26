@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:waterreminder/ui/reminder_details.dart';
 
 import '../db/drift_db.dart' as drift;
+import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
   final drift.AppDatabase database;
@@ -20,11 +23,20 @@ class _HomeScreenState extends State<HomeScreen> {
   int _dailyWaterIntakeGoal = 2000;
   List<Map<String, dynamic>> _waterIntakePlan = [];
   bool _isLoading = true;
-
+  late StreamSubscription<bool> _waterIntakeSubscription;
   @override
   void initState() {
     super.initState();
     _loadUserDetails();
+    _loadCurrentWaterIntake();
+    _waterIntakeSubscription = waterIntakeUpdateStream.listen((_) {
+      _loadCurrentWaterIntake();
+    });
+  }
+  @override
+  void dispose() {
+    _waterIntakeSubscription.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserDetails() async {
@@ -33,6 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
+      await _loadCurrentWaterIntake();
+
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -71,7 +85,19 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
+  Future<void> _loadCurrentWaterIntake() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final currentIntake = prefs.getInt('water_intake_$today') ?? 0;
 
+    if (mounted) {
+      setState(() {
+        _currentDayWaterIntake = currentIntake;
+      });
+    }
+
+
+  }
   Future<void> _navigateToReminderDetails(int reminderId) async {
     final result = await Navigator.push(
       context,

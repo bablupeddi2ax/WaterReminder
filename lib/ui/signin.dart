@@ -78,7 +78,7 @@ class _SignInScreenState extends State<SignInScreen> {
       await FirebaseAuth.instance.signInWithCredential(credential);
       if (mounted) {
         _storeUserDetails();
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, '/fetchUserDetails');
       }
     } catch (e) {
       if (mounted) {
