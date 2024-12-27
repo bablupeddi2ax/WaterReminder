@@ -34,9 +34,12 @@ class _ReminderDetailsScreenState extends State<ReminderDetailsScreen> {
 
   Future<void> _loadReminderDetails() async {
     try {
+      print(widget.id);
       final reminder = await widget.database.getReminderById(widget.id);
-
+      print(reminder==null?"reminder is null":"reminder is not null ");
       if (reminder != null) {
+        print("reminder in reminder_details screen ");
+        print(reminder);
         final reminderTime = DateTime.parse(reminder.time ?? '');
         setState(() {
           _selectedTime =

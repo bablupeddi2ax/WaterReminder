@@ -60,6 +60,10 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+    Future<List<Reminder>> getAllReminders() {
+      return select(reminders).get();
+    }
+
   Future<Reminder?> getReminderById(int id) =>
       (select(reminders)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 

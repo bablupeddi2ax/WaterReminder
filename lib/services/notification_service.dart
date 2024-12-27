@@ -21,6 +21,9 @@ class MyNotificationService {
     return _instance;
   }
 
+  FlutterLocalNotificationsPlugin getPlugin(){
+    return _flutterLocalNotificationsPlugin;
+  }
   Future<void> initialize() async {
     initializeTimeZones();
 
@@ -55,7 +58,6 @@ class MyNotificationService {
 
   void _onNotificationTapped(NotificationResponse response) {
     if (response.payload != null) {
-      final data = json.decode(response.payload!);
       // Handle notification tap based on action
       switch (response.actionId) {
         case ACTION_DRINK:
@@ -69,7 +71,14 @@ class MyNotificationService {
       }
     }
   }
-
+  Future<void> checkPendingNotifications() async {
+    final List<PendingNotificationRequest> pendingNotifications =
+    await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+    print('Pending notifications: ${pendingNotifications.length}');
+    for (var notification in pendingNotifications) {
+      print('ID: ${notification.id}, Title: ${notification.title}');
+    }
+  }
   Future<void> scheduleNotification(List<Map<String, dynamic>> planData) async {
     const notificationDetails = NotificationDetails(
       android: AndroidNotificationDetails(
@@ -78,7 +87,7 @@ class MyNotificationService {
         importance: Importance.max,
         priority: Priority.high,
         playSound: true,
-        sound: RawResourceAndroidNotificationSound('sound.mp3'),
+        sound: RawResourceAndroidNotificationSound('sound'),
         color: Color(0xFF0000FF),
         enableLights: true,
         enableVibration: true,
@@ -111,7 +120,7 @@ class MyNotificationService {
         final time = tz.TZDateTime.parse(tz.local, plan['time'] as String);
 
         await _flutterLocalNotificationsPlugin.zonedSchedule(
-          plan['id'] as int,
+          int.parse(plan['id']),
           plan['title'] as String,
           plan['body'] as String,
           time,

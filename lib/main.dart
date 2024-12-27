@@ -51,13 +51,16 @@ void main() async {
 
   // Determine initial route
   // POTENTIAL ISSUE: Logic might be simplified, current condition chain is complex
-  String initialRoute = userDetailsExist
-  // user details exist and user details like name is not null move to home
-  //else if name is null move to fetchUserDetails to get user data
-      ? (name!=null ? '/home' :'/fetchUserDetails')
-  //if user details does not exist move to signup as in user was never signed in then show signup
-      : '/signUp';
-
+  String initialRoute;
+  if (userDetailsExist) {
+    if (name != null && onboardingComplete) {
+      initialRoute = '/home';
+    } else {
+      initialRoute = '/fetchUserDetails';
+    }
+  } else {
+    initialRoute = '/signUp';
+  }
   // Main app initialization
   runApp(MyApp(database:database,initialRoute:initialRoute));
 }

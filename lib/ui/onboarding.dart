@@ -8,6 +8,7 @@
   import 'package:shared_preferences/shared_preferences.dart';
   import 'package:timezone/data/latest_all.dart' as tz;
   import 'package:timezone/timezone.dart' as tz;
+import 'package:waterreminder/services/notification_service.dart';
   import '../db/drift_db.dart' as drift;
 
   class OnboardingScreen extends StatefulWidget {
@@ -95,9 +96,9 @@
         final prefs = await SharedPreferences.getInstance();
         prefs.setString('userId', user.uid);
         prefs.setString('name', _nameController.text);
-        prefs.setString('age', _ageController.text);
-        prefs.setString('weight', _weightController.text);
-        prefs.setString('waterIntake', _waterIntakeController.text);
+        prefs.setInt('age', int.tryParse(_ageController.text)??10);
+        prefs.setInt('weight', int.tryParse(_weightController.text)??10);
+        prefs.setInt('waterIntake', int.tryParse(_waterIntakeController.text)??2000);
         prefs.setString('startTime', _formatTimeOfDay(_startTime));
         prefs.setString('endTime', _formatTimeOfDay(_endTime));
 
@@ -179,6 +180,7 @@
         // Schedule new notifications using the string version of planData
         _scheduleNotifications(stringPlanData);
         prefs.setBool('onboardingComplete', true).whenComplete((){
+          print("moving to home from onboarding");
           Navigator.pushReplacementNamed(context, '/home');
         });
         // Navigate to home screen
@@ -187,80 +189,41 @@
     }
 
     void _scheduleNotifications(List<Map<String, String?>> planData) async{
-      final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-      await flutterLocalNotificationsPlugin.cancelAll();
-      for (int i = 0; i < planData.length; i++) {
-        final reminder = planData[i];
-        tz.TZDateTime? scheduledTime;
+     var myNotificationService = MyNotificationService();
+     myNotificationService.initialize();
+     myNotificationService.scheduleNotification(planData);
 
-        try {
-          scheduledTime = tz.TZDateTime.parse(_localTimeZone, reminder['time'] as String);
-
-          // Ensure the scheduled time is in the future
-          final now = tz.TZDateTime.now(_localTimeZone);
-          if (scheduledTime.isBefore(now)) {
-            scheduledTime = scheduledTime.add(const Duration(days: 1));
-          }
-
-          final AndroidNotificationDetails androidPlatformChannelSpecifics =
-          AndroidNotificationDetails(
-            'water_reminder_channel',
-            'Water Reminders',
-            importance: Importance.max,
-            priority: Priority.high,
-            showWhen: true,
-            playSound: true,
-            enableLights: true,
-            enableVibration: true,
-            fullScreenIntent: true,
-            visibility: NotificationVisibility.public,
-            category: AndroidNotificationCategory.alarm,
-            autoCancel: false,
-            actions: const [
-              AndroidNotificationAction(
-                'DRINK_ACTION',
-                'Drink',
-                showsUserInterface: true,
-                cancelNotification: false,
-              ),
-              AndroidNotificationAction(
-                'SNOOZE_ACTION',
-                'Snooze',
-                showsUserInterface: true,
-                cancelNotification: false,
-              ),
-            ],
-          );
-
-          final NotificationDetails platformChannelSpecifics =
-          NotificationDetails(android: androidPlatformChannelSpecifics);
-
-          // Ensure payload is properly formatted
-          final payload = json.encode({
-            'reminderId': reminder['id'],
-            'time': scheduledTime.toIso8601String(),
-          });
-
-          print('Scheduling notification with payload: $payload');
-
-          flutterLocalNotificationsPlugin.zonedSchedule(
-            int.parse(reminder['id']!),
-            reminder['title'] ?? 'Drink Water Reminder',
-            reminder['body'] ?? 'It\'s time to drink water!',
-            scheduledTime,
-            platformChannelSpecifics,
-            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-            uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-            matchDateTimeComponents: DateTimeComponents.time,
-            payload: payload,
-          );
-
-        } catch (e) {
-          print('Error scheduling notification: $e');
-        }
-      }
+     myNotificationService.getPlugin().show(-1, 'test', 'body', const NotificationDetails(
+       android: AndroidNotificationDetails(
+         "WATER_REMINDER",
+         "REMINDER_CHANNEL",
+         importance: Importance.max,
+         priority: Priority.high,
+         playSound: true,
+         sound: RawResourceAndroidNotificationSound('sound'),
+         color: Color(0xFF0000FF),
+         enableLights: true,
+         enableVibration: true,
+         fullScreenIntent: true,
+         autoCancel: false,
+         visibility: NotificationVisibility.public,
+         actions: [
+           AndroidNotificationAction(
+             'DRINK_ACTION',
+             'Drink',
+             showsUserInterface: true,
+             cancelNotification: false,
+           ),
+           AndroidNotificationAction(
+             'SNOOZE_ACTION',
+             'Snooze',
+             showsUserInterface: true,
+             cancelNotification: false,
+           ),
+         ],
+         category: AndroidNotificationCategory.alarm,
+       ),
+     ));
     }
 
     List<tz.TZDateTime> _generateWaterIntakePlan(

@@ -55,8 +55,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           setState(() {
             _nameController.text = prefs.getString('name') ?? '';
-            _ageController.text = prefs.getString('age')?.toString() ?? '';
-            _weightController.text = prefs.getString('weight')?.toString() ?? '';
+            _ageController.text = prefs.getInt('age')?.toString() ?? '';
+            _weightController.text = prefs.getInt('weight')?.toString() ?? '';
           });
         // }
       // }

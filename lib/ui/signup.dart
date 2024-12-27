@@ -1,7 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,10 +18,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _phoneNumberController = TextEditingController();
   String? _verificationId;
   bool _isCodeSent = false;
-  Future<bool> userAlreadyExists() async{
-    DatabaseReference db = FirebaseDatabase.instance.ref('users');
-    bool res = await db.onChildChanged.contains(_phoneNumberController.text);
-    return res;
+  Future<bool> userAlreadyExists() async {
+    try {
+      // Check in Firestore instead of Realtime Database
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('phoneNumber', isEqualTo: '+91${_phoneNumberController.text}')
+          .get();
+
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking user existence: $e');
+      return false;
+    }
   }
   Future<void> _sendVerificationCode() async {
     try {
