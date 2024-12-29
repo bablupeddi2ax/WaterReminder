@@ -179,10 +179,8 @@ import 'package:waterreminder/services/notification_service.dart';
 
         // Schedule new notifications using the string version of planData
         _scheduleNotifications(stringPlanData);
-        prefs.setBool('onboardingComplete', true).whenComplete((){
-          print("moving to home from onboarding");
-          Navigator.pushReplacementNamed(context, '/home');
-        });
+        prefs.setBool('onboardingComplete', true);
+
         // Navigate to home screen
         Navigator.pushReplacementNamed(context, '/home');
       }
