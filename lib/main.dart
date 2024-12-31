@@ -1,20 +1,16 @@
-// Required imports for functionality
 import 'dart:async';
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:waterreminder/ui/fecth_user_details.dart';  // SUSPICIOUS: Typo in filename 'fecth' instead of 'fetch'
+import 'package:waterreminder/AppConstants.dart';
+import 'package:waterreminder/services/database_service.dart';
 import 'package:waterreminder/ui/home.dart';
 import 'package:waterreminder/ui/reminder_details.dart';
 import 'package:waterreminder/ui/settings.dart';
-import 'package:waterreminder/ui/signin.dart';
-import 'package:waterreminder/ui/signup.dart';
 import 'db/drift_db.dart' as drift;
 import 'ui/onboarding.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -23,43 +19,57 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 // POTENTIAL ISSUE: StreamController is never closed, could lead to memory leaks
 final StreamController<bool> _waterIntakeUpdateController = StreamController<bool>.broadcast();
 Stream<bool> get waterIntakeUpdateStream => _waterIntakeUpdateController.stream;
-
+// trying to make the app offline first
+// in order to do this i will remove signup and signin and move the reminder plan generation and user details collection to the onboarding screen
+// i will also remove the user details collection from the signin screen
+// i will also remove the user details collection from the signup screen
+// i will also remove the user details collection from the fetch user details screen
+// i will also remove the user details collection from the home screen
+// to make the app completely offline i will use shared prefs and drift db that i have setup in drift_db.dart
 void main() async {
   // Initialize Flutter bindings
   WidgetsFlutterBinding.ensureInitialized();
   if (kDebugMode) {
     print("WidgetsFlutterBinding.ensureInitialized()");
   }
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  // i don't know remove this line caused an error for some reason
+  // TODO remove this once no error is found
   await Firebase.initializeApp();
   if (kDebugMode) {
     print(Firebase.apps);
   }
+  // initialize notifications
   initializeNotifications();
   checkAndRequestPermissions();
 
-  SharedPreferences prefs = await SharedPreferences.getInstance();
+
   tz.initializeTimeZones();
 
   // Get user state
-  bool userDetailsExist = prefs.getString('userId') != null;
+  // modifying  this to name from userId inorder to make app offline first
+  bool userDetailsExist = prefs.getString('name') != null;
   // SUSPICIOUS: Unused variable, might indicate missing functionality
   bool onboardingComplete = prefs.getBool('onboardingComplete') ?? false;
-  String? name = prefs.getString('name');
-
+  //removed redundant code
+  //String? name = prefs.getString('name');
+  await DatabaseService().initialize();
   // Initialize database
-  final database = drift.AppDatabase();
+  final database = DatabaseService().database;
+
 
   // Determine initial route
   // POTENTIAL ISSUE: Logic might be simplified, current condition chain is complex
   String initialRoute;
   if (userDetailsExist) {
-    if (name != null && onboardingComplete) {
+    if (onboardingComplete) {
       initialRoute = '/home';
     } else {
-      initialRoute = '/fetchUserDetails';
+      initialRoute = '/onBoarding';
     }
-  } else {
-    initialRoute = '/signUp';
+  }
+  else {
+    initialRoute = '/onBoarding';
   }
   // Main app initialization
   runApp(MyApp(database:database,initialRoute:initialRoute));
@@ -80,10 +90,10 @@ class MyApp extends StatelessWidget {
         '/settings': (context) => SettingsScreen(database: database),
         // SUSPICIOUS: Hard-coded ID 0 might cause issues
         '/reminderDetails': (context) => ReminderDetailsScreen(id: 0, database: database),
-        '/signUp': (context) => SignUpScreen(database: database),
-        '/signIn': (context) => SignInScreen(database: database),
-        '/onboarding': (context) => OnboardingScreen(database: database),
-        '/fetchUserDetails': (context) => FetchUserDetailsScreen(database: database),
+      //  '/signUp': (context) => SignUpScreen(database: database),
+        //'/signIn': (context) => SignInScreen(database: database),
+        '/onBoarding': (context) => OnboardingScreen(database: database),
+       // '/fetchUserDetails': (context) => FetchUserDetailsScreen(database: database),
       },
       // Route generator for dynamic reminder details pages
       onGenerateRoute: (settings) {
@@ -98,8 +108,7 @@ class MyApp extends StatelessWidget {
           }
         }
         // POTENTIAL ISSUE: Default route might cause unexpected behavior
-        return MaterialPageRoute(
-            builder: (context) => HomeScreen(database: database));
+        return null; // Return null instead of a default route
       },
     );
   }
@@ -131,20 +140,21 @@ Future<void> updateWaterIntake(int amount) async {
     print('Updated water intake in SharedPreferences: $newIntake ml');
 
     // Update Firestore if user is logged in
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('water_intake')
-          .doc(today)
-          .set({
-        'amount': newIntake,
-        'date': today,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      print('Updated water intake in Firestore: $newIntake ml');
-    }
+        // removing code related to firebase
+
+    // if (user != null) {
+    //   await FirebaseFirestore.instance
+    //       .collection('users')
+    //       .doc(user.uid)
+    //       .collection('water_intake')
+    //       .doc(today)
+    //       .set({
+    //     'amount': newIntake,
+    //     'date': today,
+    //     'lastUpdated': FieldValue.serverTimestamp(),
+    //   }, SetOptions(merge: true));
+    //   print('Updated water intake in Firestore: $newIntake ml');
+    // }
 
     // Notify listeners
     _waterIntakeUpdateController.add(true);
@@ -170,8 +180,8 @@ Future<void> snoozeNotification(int id) async {
   final zonedScheduleTime = tz.TZDateTime.from(scheduledTime, tz.local);
 
   // Configure notification details
-  final AndroidNotificationDetails androidPlatformChannelSpecifics =
-  const AndroidNotificationDetails(
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+  AndroidNotificationDetails(
     'water_reminder_channel',
     'Water Reminders',
     importance: Importance.max,
@@ -211,8 +221,8 @@ Future<void> snoozeNotification(int id) async {
     uiLocalNotificationDateInterpretation:
     UILocalNotificationDateInterpretation.absoluteTime,
     payload: json.encode({
-      'reminderId': id.toString(),
-      'time': zonedScheduleTime.toIso8601String(),
+      AppConstants.notificationPayloadReminderId: id.toString(),
+      AppConstants.notificationPayloadReminderTime: zonedScheduleTime.toIso8601String(),
     }),
   );
 
@@ -234,8 +244,8 @@ Future<void> initializeNotifications() async {
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(const AndroidNotificationChannel(
-    'water_reminder_channel',
-    'Water Reminders',
+    AppConstants.waterReminderChannelId,
+    AppConstants.waterReminderChannelName,
     importance: Importance.max,
     enableVibration: true,
     playSound: true,

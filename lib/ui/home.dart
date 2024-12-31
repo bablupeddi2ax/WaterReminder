@@ -228,6 +228,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:waterreminder/services/FirebaseService.dart';
 import 'package:waterreminder/services/notification_service.dart';
@@ -375,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadCurrentWaterIntake() async {
     final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().split('T')[0];
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final currentIntake = prefs.getInt('water_intake_$today') ?? 0;
 
     if (mounted) {
@@ -396,8 +397,17 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    if (result == true) {
-      await _loadUserDetails();
+    if (result == true && mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+      await _loadFromLocalDatabase((success){
+        if(mounted){
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      });
     }
   }
 

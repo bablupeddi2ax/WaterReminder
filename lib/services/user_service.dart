@@ -1,9 +1,11 @@
 import 'package:drift/drift.dart';
 import 'package:drift/drift.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:waterreminder/db/drift_db.dart' as drift;
 import 'package:waterreminder/services/FirebaseService.dart';
+import 'package:waterreminder/services/database_service.dart';
 
 class UserService{
 
@@ -11,10 +13,14 @@ class UserService{
   static final UserService _instance = UserService._internal();
   factory UserService(){return  _instance;}
   late SharedPreferences _prefs;
-  final drift.AppDatabase _database = drift.AppDatabase();
-
-  Future<void> init()async{
-    _prefs = await SharedPreferences.getInstance();
+  late final drift.AppDatabase _database ;
+  bool _isInitialized =false;
+  Future<void> init() async {
+    if (!_isInitialized) {
+      _prefs = await SharedPreferences.getInstance();
+      _database = DatabaseService().database;
+      _isInitialized = true;
+    }
   }
   // handles everything related user
   Future<void> saveUserDetailsToSharePrefs(String name,String age, String weight)async{
@@ -62,13 +68,18 @@ class UserService{
     }
   }
 
-  Future<void> updateDailyWaterIntake() async{
-    try{
-      int prev = await _prefs.getInt('dailyWaterIntake${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}')??0;
-      await _prefs.setInt('dailyWaterIntake${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}',prev+250 );
-    }catch(e){
-      print("UpdateDailywaterintakeexception");
-      print(e);
+  Future<void> updateDailyWaterIntake() async {
+    if (!_isInitialized) await init();
+
+    try {
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final key = 'water_intake_$today';
+      print('inside udpate daly awater intake');
+      int prev = _prefs.getInt(key) ?? 0;
+      await _prefs.setInt(key, prev + 250);
+      print(_prefs.getInt(key));
+    } catch (e) {
+      print("UpdateDailywaterintakeexception: ${e.toString()}");
     }
   }
 

@@ -48,7 +48,7 @@ class MyNotificationService {
         CHANNEL_NAME,
         importance: Importance.max,
         playSound: true,
-        sound: RawResourceAndroidNotificationSound('sound.mp3'),
+        sound: RawResourceAndroidNotificationSound('sound'),
         enableVibration: true,
         enableLights: true,
         audioAttributesUsage: AudioAttributesUsage.alarm,

@@ -25,23 +25,19 @@ import 'package:waterreminder/services/notification_service.dart';
     final TextEditingController _ageController = TextEditingController();
     final TextEditingController _weightController = TextEditingController();
     final TextEditingController _waterIntakeController = TextEditingController();
-    late FirebaseAuth auth;
+   // late FirebaseAuth auth;
     TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay _endTime = const TimeOfDay(hour: 22, minute: 0);
-
-    late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
-    late tz.Location _localTimeZone;
+    late MyNotificationService myNotificationService;
 
     @override
     void initState() {
       super.initState();
       tz.initializeTimeZones();
-      _localTimeZone = tz.local;
-      auth = FirebaseAuth.instance;
-      _initializeNotifications();
-
-      _localTimeZone = tz.local;
-
+      myNotificationService = MyNotificationService();
+      myNotificationService.initialize();
+    // //  auth = FirebaseAuth.instance;
+    //   _initializeNotifications();
       // Initialize text controllers with default values
       _nameController.text = ''; // Name can be empty
       _ageController.text = '0'; // Default age
@@ -49,16 +45,16 @@ import 'package:waterreminder/services/notification_service.dart';
       _waterIntakeController.text = '2000'; // Default water intake
     }
 
-    void _initializeNotifications() {
-      flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-      const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-      const InitializationSettings initializationSettings =
-          InitializationSettings(
-        android: initializationSettingsAndroid,
-      );
-      flutterLocalNotificationsPlugin.initialize(initializationSettings);
-    }
+    // void _initializeNotifications() {
+    //   flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    //   const AndroidInitializationSettings initializationSettingsAndroid =
+    //       AndroidInitializationSettings('@mipmap/ic_launcher');
+    //   const InitializationSettings initializationSettings =
+    //       InitializationSettings(
+    //     android: initializationSettingsAndroid,
+    //   );
+    //   flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    // }
 
     Future<void> _selectStartTime() async {
       final TimeOfDay? pickedTime = await showTimePicker(
@@ -91,10 +87,10 @@ import 'package:waterreminder/services/notification_service.dart';
     }
 
     Future<void> _storeUserDetails() async {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
+     // final user = FirebaseAuth.instance.currentUser;
+      //if (user != null) {
         final prefs = await SharedPreferences.getInstance();
-        prefs.setString('userId', user.uid);
+        prefs.setString('userId', "userId");
         prefs.setString('name', _nameController.text);
         prefs.setInt('age', int.tryParse(_ageController.text)??10);
         prefs.setInt('weight', int.tryParse(_weightController.text)??10);
@@ -111,7 +107,7 @@ import 'package:waterreminder/services/notification_service.dart';
 
         // First store user in local database
         await widget.database.insertUser(drift.UsersCompanion(
-          id: drift.Value(user.uid),
+          id: drift.Value("userId"),
           name: drift.Value(_nameController.text),
           age: drift.Value(int.parse(_ageController.text)),
           weight: drift.Value(int.parse(_weightController.text)),
@@ -119,12 +115,11 @@ import 'package:waterreminder/services/notification_service.dart';
           startTime: drift.Value(_formatTimeOfDay(_startTime)),
           endTime: drift.Value(_formatTimeOfDay(_endTime)),
         ));
-
         // Store reminders in local database first to get IDs
         List<drift.Reminder> localReminders = [];
         for (var planTime in plan) {
           final reminderCompanion = drift.RemindersCompanion(
-            userId: drift.Value(user.uid),
+            userId: drift.Value("userId"),
             time: drift.Value(planTime.toUtc().toIso8601String()),
             title: const drift.Value('Drink Water Reminder'),
             body: const drift.Value('It\'s time to drink water!'),
@@ -160,35 +155,38 @@ import 'package:waterreminder/services/notification_service.dart';
             .toList();
 
         // Store in Firestore with real IDs (can handle non-string types)
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-          'name': _nameController.text,
-          'age': int.parse(_ageController.text),
-          'weight': int.parse(_weightController.text),
-          'waterIntake': int.parse(_waterIntakeController.text),
-          'startTime': _formatTimeOfDay(_startTime),
-          'endTime': _formatTimeOfDay(_endTime),
-          'plan': firestorePlanData,
-        });
+        // await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        //   'name': _nameController.text,
+        //   'age': int.parse(_ageController.text),
+        //   'weight': int.parse(_weightController.text),
+        //   'waterIntake': int.parse(_waterIntakeController.text),
+        //   'startTime': _formatTimeOfDay(_startTime),
+        //   'endTime': _formatTimeOfDay(_endTime),
+        //   'plan': firestorePlanData,
+        // });
 
         // Store in SharedPreferences (needs strings)
         prefs.setStringList('plan',
             stringPlanData.map((reminder) => jsonEncode(reminder)).toList());
 
         // Cancel existing notifications
-        await flutterLocalNotificationsPlugin.cancelAll();
+        // await flutterLocalNotificationsPlugin.cancelAll();
+        await myNotificationService.getPlugin().cancelAll();
 
         // Schedule new notifications using the string version of planData
         _scheduleNotifications(stringPlanData);
         prefs.setBool('onboardingComplete', true);
-
+      if(mounted) {
         // Navigate to home screen
         Navigator.pushReplacementNamed(context, '/home');
       }
+
     }
 
     void _scheduleNotifications(List<Map<String, String?>> planData) async{
-     var myNotificationService = MyNotificationService();
-     myNotificationService.initialize();
+      // Schedule notifications
+      // await flutterLocalNotificationsPlugin.cancelAll();
+      await myNotificationService.getPlugin().cancelAll();
      myNotificationService.scheduleNotification(planData);
 
      myNotificationService.getPlugin().show(-1, 'test', 'body', const NotificationDetails(
