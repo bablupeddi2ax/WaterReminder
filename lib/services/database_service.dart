@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../db/drift_db.dart';
 
 class DatabaseService {

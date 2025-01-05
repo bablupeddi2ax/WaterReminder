@@ -3,30 +3,25 @@ import 'dart:ui';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:waterreminder/main.dart';
 import 'package:waterreminder/services/user_service.dart';
-
 class MyNotificationService {
   static const CHANNEL_ID = "WATER_REMINDER";
   static const CHANNEL_NAME = "REMINDER_CHANNEL";
   static const ACTION_DRINK = "DRINK_ACTION";
   static const ACTION_SNOOZE = "SNOOZE_ACTION";
-
   MyNotificationService._internal();
   static final MyNotificationService _instance = MyNotificationService._internal();
-
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
   FlutterLocalNotificationsPlugin();
-
   factory MyNotificationService() {
     return _instance;
   }
-
   FlutterLocalNotificationsPlugin getPlugin(){
     return _flutterLocalNotificationsPlugin;
   }
   Future<void> initialize() async {
     initializeTimeZones();
-
     const initializationSettings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       iOS: DarwinInitializationSettings(
@@ -35,12 +30,10 @@ class MyNotificationService {
         requestCriticalPermission: true,
       ),
     );
-
     await _flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
-
     await _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(
       const AndroidNotificationChannel(
@@ -55,18 +48,24 @@ class MyNotificationService {
       ),
     );
   }
-
   void _onNotificationTapped(NotificationResponse response) {
     if (response.payload != null) {
-      // Handle notification tap based on action
       switch (response.actionId) {
         case ACTION_DRINK:
-        // Handle drink action
+          print("Processing drink action");
+          // trigger using waterIntakeController to update water intake
+
           UserService().updateDailyWaterIntake();
           break;
         case ACTION_SNOOZE:
-        // Handle snooze action
+          if(response.payload==null || response.payload!.isEmpty) {
+            var p = json.decode(response.payload!);
+            var reminderId = int.parse(p['reminderId'].toString());
+            print("Notification snnozed with ID: $reminderId");
+            print(reminderId);
+            MyNotificationService().snoozeNotification(reminderId);
 
+          }
           break;
       }
     }
@@ -140,7 +139,45 @@ class MyNotificationService {
       }
     }
   }
-  Future<void> snoozeNotification() async{
-    // jusr schedule a temporary noification with the same configuration it can als
+  Future<void> snoozeNotification(int id) async {
+    _flutterLocalNotificationsPlugin.cancel(id);
+    final scheduledTime = DateTime.now().add(const Duration(minutes: 3));
+    final zonedScheduleTime = tz.TZDateTime.from(scheduledTime, tz.local);
+
+    const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      CHANNEL_ID,
+      CHANNEL_NAME,
+      importance: Importance.max,
+      priority: Priority.high,
+      actions: <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          'DRINK_ACTION',
+          'Drink',
+          showsUserInterface: true,
+          cancelNotification: false,
+        ),
+      ],
+      playSound: true,
+      enableLights: true,
+      enableVibration: true,
+      fullScreenIntent: true,
+      category: AndroidNotificationCategory.alarm,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await _flutterLocalNotificationsPlugin.zonedSchedule(
+      id,
+      'Drink Water Reminder (Snoozed)',
+      'Please don\'t skip drinking water reminder',
+      zonedScheduleTime,
+      platformChannelSpecifics,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      payload: json.encode({
+        'reminderId': id,
+        'time': zonedScheduleTime.toIso8601String(),
+      }),
+    );
   }
 }
