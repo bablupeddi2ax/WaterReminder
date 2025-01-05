@@ -375,15 +375,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadCurrentWaterIntake() async {
-    final prefs = await SharedPreferences.getInstance();
+    final _prefs = await SharedPreferences.getInstance();
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final currentIntake = prefs.getInt('water_intake_$today') ?? 0;
-
-    if (mounted) {
+    final key = 'water_intake_$today';
+    print('inside udpate daly awater intake');
+    int prev = _prefs.getInt(key) ?? 0;
       setState(() {
-        _currentDayWaterIntake = currentIntake;
+        _currentDayWaterIntake = prev;
       });
-    }
+
   }
 
   Future<void> _navigateToReminderDetails(int reminderId) async {

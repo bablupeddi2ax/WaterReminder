@@ -8,6 +8,8 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:waterreminder/AppConstants.dart';
 import 'package:waterreminder/services/database_service.dart';
+import 'package:waterreminder/services/notification_service.dart';
+import 'package:waterreminder/services/user_service.dart';
 import 'package:waterreminder/ui/home.dart';
 import 'package:waterreminder/ui/reminder_details.dart';
 import 'package:waterreminder/ui/settings.dart';
@@ -278,7 +280,28 @@ Future<void> initializeNotifications() async {
           case 'DRINK_ACTION':
             print("Processing drink action");
             // POTENTIAL ISSUE: Hard-coded water intake amount (250ml)
-            await updateWaterIntake(250);
+            print(response.notificationResponseType);
+            print(response.payload);
+            print("response null or not");
+
+            print(response.payload==null);
+            await UserService().updateDailyWaterIntake();
+            if (response.payload != null) {
+              try {
+                final payload = json.decode(response.payload!) as Map<String, dynamic>;
+                final reminderId = int.parse(payload['reminderId'].toString());
+                print("reminderId$reminderId");
+                print(payload.toString());
+
+                await MyNotificationService().initialize();
+                print("after initialize");
+                await MyNotificationService().getPlugin().cancel(reminderId);
+                print("after cancel");
+                print('Cancelled notification with ID: $reminderId');
+              } catch (e) {
+                print('Error cancelling notification: $e');
+              }
+            }
             break;
           case 'SNOOZE_ACTION':
             print("Processing snooze action");
