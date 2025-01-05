@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:waterreminder/main.dart';
 import 'package:waterreminder/services/user_service.dart';
 class MyNotificationService {
   static const CHANNEL_ID = "WATER_REMINDER";

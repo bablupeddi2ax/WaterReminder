@@ -19,6 +19,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 final StreamController<bool> _waterIntakeUpdateController = StreamController<bool>.broadcast();
 Stream<bool> get waterIntakeUpdateStream => _waterIntakeUpdateController.stream;
 void main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
   if (kDebugMode) {
     print("WidgetsFlutterBinding.ensureInitialized()");
@@ -47,6 +48,7 @@ void main() async {
   else {
     initialRoute = '/onBoarding';
   }
+  MyNotificationService().initialize();
   UserService().init(_waterIntakeUpdateController);
   runApp(MyApp(database:database,initialRoute:initialRoute));
 }
@@ -219,7 +221,11 @@ Future<void> initializeNotifications() async {
             if (payload['reminderId'] != null) {
               final int reminderId = int.parse(payload['reminderId'].toString());
               await MyNotificationService().getPlugin().cancel(reminderId);
+              print("payload not null");
+              print("Cancelled notification with ID: $reminderId");
+
               await MyNotificationService().snoozeNotification(reminderId);
+              print("after snooze");
 
             }
             break;
