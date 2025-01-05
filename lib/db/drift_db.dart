@@ -1,12 +1,9 @@
 import 'dart:io';
-
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as pjoin;
 import 'package:path_provider/path_provider.dart';
-
 part 'drift_db.g.dart';
-
 class Users extends Table {
   Column<String> get id => text().nullable()();
   TextColumn get name => text().nullable()();
@@ -16,7 +13,6 @@ class Users extends Table {
   TextColumn get startTime => text().nullable()();
   TextColumn get endTime => text().nullable()();
 }
-
 class Reminders extends Table {
   IntColumn get id => integer().autoIncrement()();
   Column<String> get userId => text().references(Users, #id)();
@@ -24,7 +20,6 @@ class Reminders extends Table {
   TextColumn get title => text().nullable()();
   TextColumn get body => text().nullable()();
 }
-
 @DriftDatabase(tables: [Users, Reminders])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -35,10 +30,8 @@ class AppDatabase extends _$AppDatabase {
       return NativeDatabase(file);
     });
   }
-
   @override
   int get schemaVersion => 2;
-
   Future<User?> getUserById(String id) =>
       (select(users)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 
@@ -49,7 +42,6 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> insertReminder(RemindersCompanion reminder) =>
       into(reminders).insert(reminder);
-
   Future<void> updateRemindersByUserId(
       String userId, List<RemindersCompanion> newReminders) async {
     await (delete(reminders)..where((tbl) => tbl.userId.equals(userId))).go();
@@ -59,11 +51,9 @@ class AppDatabase extends _$AppDatabase {
       }
     });
   }
-
-    Future<List<Reminder>> getAllReminders() {
-      return select(reminders).get();
-    }
-
+  Future<List<Reminder>> getAllReminders() {
+    return select(reminders).get();
+  }
   Future<Reminder?> getReminderById(int id) =>
       (select(reminders)..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
 

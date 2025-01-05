@@ -1,77 +1,94 @@
+import 'dart:async';
 import 'package:drift/drift.dart';
-import 'package:drift/drift.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:waterreminder/db/drift_db.dart' as drift;
 import 'package:waterreminder/services/FirebaseService.dart';
+import 'package:waterreminder/services/database_service.dart';
 
-class UserService{
-
+class UserService {
   UserService._internal();
   static final UserService _instance = UserService._internal();
-  factory UserService(){return  _instance;}
-  late SharedPreferences _prefs;
-  final drift.AppDatabase _database = drift.AppDatabase();
+  factory UserService() => _instance;
 
-  Future<void> init()async{
-    _prefs = await SharedPreferences.getInstance();
+  late SharedPreferences _prefs;
+  late final drift.AppDatabase _database;
+  bool _isInitialized = false;
+  late StreamController<bool> _waterIntakeUpdateController;
+
+  Stream<bool> get waterIntakeUpdateStream => _waterIntakeUpdateController.stream;
+
+  Future<void> init(StreamController<bool> waterIntakeUpdateController) async {
+    if (!_isInitialized) {
+      _prefs = await SharedPreferences.getInstance();
+      _database = DatabaseService().database;
+      _waterIntakeUpdateController = waterIntakeUpdateController;
+      _isInitialized = true;
+    }
   }
-  // handles everything related user
-  Future<void> saveUserDetailsToSharePrefs(String name,String age, String weight)async{
+
+  Future<void> saveUserDetailsToSharePrefs(String name, String age, String weight) async {
     try {
       await _prefs.setString('name', name);
       await _prefs.setInt('age', int.parse(age));
       await _prefs.setInt('weight', int.parse(weight));
-    }catch(e){
+    } catch (e) {
       print(e);
     }
   }
 
-  Future<void> saveUserDetailsToLocalDB(String name,String age, String weight)async {
+  Future<void> saveUserDetailsToLocalDB(String name, String age, String weight) async {
     final user = MyFirebaseService().auth.currentUser;
-    if(user!=null){
-      await _database.insertUser(drift.UsersCompanion( id: Value(user.uid),
+    if (user != null) {
+      await _database.insertUser(drift.UsersCompanion(
+        id: Value(user.uid),
         name: Value(name),
         age: Value(int.parse(age)),
-        weight: Value(int.parse(weight)),));
+        weight: Value(int.parse(weight)),
+      ));
     }
   }
 
-  Future<void> saveUserDetailsToCloudFirestore(String name,String age, String weight)async{
-      final user = MyFirebaseService().auth.currentUser;
-      if(user!=null){
-        await MyFirebaseService().fireStore.collection('users').doc(user.uid).set({
-          'name':name,'age':int.parse(age),'weight':int.parse(weight)
-        });
-      }
+  Future<void> saveUserDetailsToCloudFirestore(String name, String age, String weight) async {
+    final user = MyFirebaseService().auth.currentUser;
+    if (user != null) {
+      await MyFirebaseService().fireStore.collection('users').doc(user.uid).set({
+        'name': name,
+        'age': int.parse(age),
+        'weight': int.parse(weight),
+      });
+    }
   }
-  //sa
-  Future<void> saveUserDetailsToRealtimeDb({required String userId})async{
-    final ref  = MyFirebaseService().realTimeDb.ref('users/$userId');
+
+  Future<void> saveUserDetailsToRealtimeDb({required String userId}) async {
+    final ref = MyFirebaseService().realTimeDb.ref('users/$userId');
     await ref.set(true);
   }
 
-
-  Future<void> updateUserDetailsInSharedPrefs({String? name=null,int? age = null,int? weight = null})async{
+  Future<void> updateUserDetailsInSharedPrefs({String? name, int? age, int? weight}) async {
     try {
       if (name != null && name.isNotEmpty) await _prefs.setString('name', name);
       if (age != null && age < 5) await _prefs.setInt('age', age);
       if (weight != null && weight > 30) await _prefs.setInt('weight', weight);
-    }catch(e){
+    } catch (e) {
       print(e);
     }
   }
 
-  Future<void> updateDailyWaterIntake() async{
-    try{
-      int prev = await _prefs.getInt('dailyWaterIntake${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}')??0;
-      await _prefs.setInt('dailyWaterIntake${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}',prev+250 );
-    }catch(e){
-      print("UpdateDailywaterintakeexception");
-      print(e);
+  Future<void> updateDailyWaterIntake() async {
+
+    if (!_isInitialized) await init(_waterIntakeUpdateController);
+
+    try {
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final key = 'water_intake_$today';
+      print('inside update daily water intake');
+      int prev = _prefs.getInt(key) ?? 0;
+      await _prefs.setInt(key, prev + 250);
+      _waterIntakeUpdateController.add(true);
+      print(_prefs.getInt(key));
+    } catch (e) {
+      print("UpdateDailyWaterIntakeException: ${e.toString()}");
     }
   }
-
-
-
 }
