@@ -140,7 +140,7 @@ class MyNotificationService {
   }
   Future<void> snoozeNotification(int id) async {
     _flutterLocalNotificationsPlugin.cancel(id);
-    final scheduledTime = DateTime.now().add(const Duration(minutes: 3));
+    final scheduledTime = DateTime.now().add(const Duration(minutes: 15));
     final zonedScheduleTime = tz.TZDateTime.from(scheduledTime, tz.local);
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics = AndroidNotificationDetails(

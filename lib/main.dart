@@ -42,11 +42,11 @@ void main() async {
     if (onboardingComplete) {
       initialRoute = '/home';
     } else {
-      initialRoute = '/onBoarding';
+      initialRoute = '/welcome';
     }
   }
   else {
-    initialRoute = '/onBoarding';
+    initialRoute = '/welcome';
   }
   MyNotificationService().initialize();
   UserService().init(_waterIntakeUpdateController);
@@ -62,9 +62,10 @@ class MyApp extends StatelessWidget {
       title: "Water Reminder",
       initialRoute: initialRoute,
       routes: {
-        '/home': (context) => HomeScreen(database: database),
+        '/home': (context) => HomeScreen(database: database,controller: _waterIntakeUpdateController),
         '/settings': (context) => SettingsScreen(database: database),
         '/reminderDetails': (context) => ReminderDetailsScreen(id: 0, database: database),
+        '/welcome': (context) => WelcomeScreen(database: database),
         '/onBoarding': (context) => OnboardingScreen(database: database),
       },
       onGenerateRoute: (settings) {

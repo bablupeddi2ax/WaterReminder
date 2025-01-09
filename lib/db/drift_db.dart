@@ -13,6 +13,7 @@ class Users extends Table {
   TextColumn get startTime => text().nullable()();
   TextColumn get endTime => text().nullable()();
 }
+
 class Reminders extends Table {
   IntColumn get id => integer().autoIncrement()();
   Column<String> get userId => text().references(Users, #id)();
@@ -20,6 +21,17 @@ class Reminders extends Table {
   TextColumn get title => text().nullable()();
   TextColumn get body => text().nullable()();
 }
+// table added in version 3
+// to keep track of water drank by user according to date and time
+// this is used by the + button in the home screen when clicked it will add an entry to this table
+// datetime is for easily grouping the recording according date and time helps in knowing how much water was drank at what time
+class WaterIntakeHistory extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  Column<String> get userId => text().references(Users, #id)(); // Keep this for consistency
+  DateTimeColumn get drinkDateTime => dateTime()();
+  IntColumn get quantity => integer()();
+}
+
 @DriftDatabase(tables: [Users, Reminders])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -62,4 +74,53 @@ class AppDatabase extends _$AppDatabase {
     await (update(reminders)..where((tbl) => tbl.id.equals(id)))
         .write(updatedReminder);
   }
+
+  // water intake history cruds
+  // Future<int> recordWaterIntake(int quantity) {
+  //   final entry = WaterIntakeHistoryCompanion.insert(
+  //     userId: Value(defaultUserId),
+  //     drinkDateTime: Value(DateTime.now()),
+  //     quantity: Value(quantity),
+  //   );
+  //   return into(waterIntakeHistory).insert(entry);
+  // }
+
+  // Future<List<WaterIntakeHistoryData>> getWaterIntakesForDate(DateTime date) {
+  //   final startOfDay = DateTime(date.year, date.month, date.day);
+  //   final endOfDay = startOfDay.add(const Duration(days: 1));
+  //
+  //   return (select(waterIntakeHistory)
+  //     ..where((tbl) =>
+  //     tbl.userId.equals(defaultUserId) &
+  //     tbl.drinkDateTime.isBetweenValues(startOfDay, endOfDay))
+  //     ..orderBy([(t) => OrderingTerm.desc(t.drinkDateTime)]))
+  //       .get();
+  // }
+  //
+  // Future<int> getTotalIntakeForDate(DateTime date) async {
+  //   final startOfDay = DateTime(date.year, date.month, date.day);
+  //   final endOfDay = startOfDay.add(const Duration(days: 1));
+  //
+  //   final result = await (select(waterIntakeHistory)
+  //     ..where((tbl) =>
+  //     tbl.userId.equals(defaultUserId) &
+  //     tbl.drinkDateTime.isBetweenValues(startOfDay, endOfDay)))
+  //       .get();
+  //
+  //   return result.fold(0, (sum, entry) => sum + entry.quantity);
+  // }
+  //
+  // Future<void> deleteWaterIntake(int id) =>
+  //     (delete(waterIntakeHistory)..where((tbl) => tbl.id.equals(id))).go();
+  //
+  // // Get intakes for a date range (useful for weekly/monthly views)
+  // Future<List<WaterIntakeHistoryData>> getWaterIntakesForDateRange(
+  //     DateTime startDate, DateTime endDate) {
+  //   return (select(waterIntakeHistory)
+  //     ..where((tbl) =>
+  //     tbl.userId.equals(defaultUserId) &
+  //     tbl.drinkDateTime.isBetweenValues(startDate, endDate))
+  //     ..orderBy([(t) => OrderingTerm.desc(t.drinkDateTime)]))
+  //       .get();
+  // }
 }

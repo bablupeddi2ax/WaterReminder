@@ -24,4 +24,13 @@ class DatabaseService {
   bool get isInitialized => _isInitialized;
   SharedPreferences get prefs => _prefs;
   AppDatabase get database => _database;
+
+  Future<void> saveUserDetails(String name, int age, int weight) async {
+    await _prefs.setString('name', name);
+    await _prefs.setInt('age', age);
+    await _prefs.setInt('weight', weight);
+  }
+  String? getUserName()  {
+    return  _prefs.getString('name');
+  }
 }

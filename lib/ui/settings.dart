@@ -1,6 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart' as drift;
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,7 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // _ageController.text = prefs.getInt('age')?.toString() ?? '';
     // _weightController.text = prefs.getInt('weight')?.toString() ?? '';
     // try {
-      final user = FirebaseAuth.instance.currentUser;
+    //   final user = FirebaseAuth.instance.currentUser;
       // if (user != null) {
       //   // Try Firestore first
       //   final userDoc = await FirebaseFirestore.instance
@@ -71,16 +69,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     prefs.setInt('age', int.tryParse(_ageController.text) ?? 0);
     prefs.setInt('weight', int.tryParse(_weightController.text) ?? 0);
     // Update Firestore
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({
-        'name': _nameController.text,
-        'age': int.tryParse(_ageController.text) ?? 0,
-        'weight': int.tryParse(_weightController.text) ?? 0,
-      });
+    // final user = FirebaseAuth.instance.currentUser;
+    // if (user != null) {
+    //   await FirebaseFirestore.instance
+    //       .collection('users')
+    //       .doc(user.uid)
+    //       .update({
+    //     'name': _nameController.text,
+    //     'age': int.tryParse(_ageController.text) ?? 0,
+    //     'weight': int.tryParse(_weightController.text) ?? 0,
+    //   });
 
       // Update local database
       final userId = await widget.database.insertUser(UsersCompanion(
@@ -88,7 +86,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         age: drift.Value(int.tryParse(_ageController.text) ?? 0),
         weight: drift.Value(int.tryParse(_weightController.text) ?? 0),
       ));
-    }
+      print('User ID: $userId');
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Settings saved successfully')),

@@ -477,7 +477,8 @@ class _ReminderDetailsScreenState extends State<ReminderDetailsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Reminder')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('Edit Reminder'),backgroundColor: Colors.white,),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
