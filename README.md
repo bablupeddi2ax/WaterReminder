@@ -1,24 +1,22 @@
-![IMG-20250119-WA0016](https://github.com/user-attachments/assets/5c0e4e0e-e36b-441b-86ea-c184ab35011e)![IMG-20250119-WA0015](https://github.com/user-attachments/assets/3210fe35-a274-4cfa-a512-09adb9b1822c)![IMG-20250119-WA0027](https://github.com/user-attachments/assets/95dbb50c-465a-4dac-8e1f-420a0aff0d54)# waterreminder
+# waterreminder
 The app is made using flutter local notifications plugin. 
 
 #Screenshots
 
+![IMG-20250119-WA0026](https://github.com/user-attachments/assets/de9f60f9-bed1-4340-9891-4de7b37787c4)
+![IMG-20250119-WA0025](https://github.com/user-attachments/assets/7b49b950-2822-4d21-890e-2a092fd7e07d)
+![IMG-20250119-WA0024](https://github.com/user-attachments/assets/5ea70fa3-17e9-4c6e-9088-73b3198010a5)
+![IMG-20250119-WA0023](https://github.com/user-attachments/assets/cedefd7e-ec91-4da3-821e-f2617d7c4d3a)
+![IMG-20250119-WA0022](https://github.com/user-attachments/assets/11c3f8d4-fcbb-4e72-905a-1b02f58ad04c)
+![IMG-20250119-WA0021](https://github.com/user-attachments/assets/af7c5509-bce1-4812-a922-602af8968e2b)
+![IMG-20250119-WA0020](https://github.com/user-attachments/assets/28f2a972-2e3a-4872-b971-a5bb92c7e872)
+![IMG-20250119-WA0019](https://github.com/user-attachments/assets/4a2770d4-455d-49c8-88bd-0b511e62c1f5)
+![IMG-20250119-WA0018](https://github.com/user-attachments/assets/de6db4f3-2d09-4341-80af-d713289dc780)
+![IMG-20250119-WA0017](https://github.com/user-attachments/assets/21860c90-3492-4c71-90f2-4aea8e2873da)
+![IMG-20250119-WA0016](https://github.com/user-attachments/assets/9c1400c3-22ea-4021-b798-35e75e2d71b0)
+![IMG-20250119-WA0015](https://github.com/user-attachments/assets/d190f46e-99a6-4c47-87df-cd5b22c97040)
+![IMG-20250119-WA0027](https://github.com/user-attachments/assets/cee266f8-5df0-43bb-9278-d69e39be8df1)
 
 
 
 
-
-![IMG-20250119-WA0022](https://github.com/user-attachments/assets/e6f42267-57ad-4084-b9b6-b0adafcb861f)
-![IMG-20250119-WA0021](https://github.com/user-attachments/assets/118b67dc-2757-4444-9ea1-c10105a3b4de)
-![IMG-20250119-WA0020](https://github.com/user-attachments/assets/76031c20-efb1-4a1f-8955-a20f0e6a4e7d)
-![IMG-20250119-WA0019](https://github.com/user-attachments/assets/02e6fa2f-57a9-4b18-8848-45402516430c)
-![IMG-20250119-WA0018](https://github.com/user-attachments/assets/b90e4491-e6e0-44da-b446-0d4557ca7028)
-![IMG-20250119-WA0017](https://github.com/user-attachments/assets/bbeff50f-928b-487f-b710-b559b02ec16f)
-![IMG-20250119-WA0027](https://github.com/user-attachments/assets/a3aee752-834e-4cfb-9b09-04709bfb6578)
-![IMG-20250119-WA0026](https://github.com/user-attachments/assets/18a74e4f-20be-4d90-b7d7-cef9c4ce8441)
-![IMG-20250119-WA0025](https://github.com/user-attachments/assets/da908670-abe3-4c68-881d-6dd4558978a5)
-![IMG-20250119-WA0024](https://github.com/user-attachments/assets/4a5a13a0-2c84-4557-981a-dfb2742f70f7)
-![IMG-20250119-WA0023](https://github.com/user-attachments/assets/22c5837c-c392-4795-8eda-bfe831d42c0c)
-
-![IMG-20250119-WA0016](https://github.com/user-attachments/assets/aaed0fe9-9610-48ad-8a36-34d50282c85f)
-![IMG-20250119-WA0015](https://github.com/user-attachments/assets/726aacb0-e77e-4546-8b5e-1c226bb98e3d)
